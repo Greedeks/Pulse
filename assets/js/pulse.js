@@ -119,7 +119,7 @@ document.addEventListener('DOMContentLoaded', function () {
   async function fetchAllReleases(username, repo) {
     let releases = [], page = 1;
     while (true) {
-      const res = await fetch(`https://api.github.com/repos/${username}/${repo}/releases?page=${page}&per_page=100`);
+      const res = await cachedFetch(`https://api.github.com/repos/${username}/${repo}/releases?page=${page}&per_page=100`);
       if (res.status === 403) throw new Error('GitHub API rate limit exceeded');
       if (res.status === 404) throw new Error('Repository not found');
       if (!res.ok) throw new Error(`API error: ${res.status}`);
