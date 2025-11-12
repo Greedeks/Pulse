@@ -5,6 +5,43 @@ document.addEventListener('DOMContentLoaded', function () {
   const footer = document.querySelector('.footer');
   const baseBottom = parseInt(window.getComputedStyle(scrollBtn).bottom, 10);
 
+  // Cached handling
+  function clearCache(url) {
+    const cacheKey = `cache_${url}`;
+    localStorage.removeItem(cacheKey);
+  }
+
+  function clearAllCache() { localStorage.clear(); }
+
+  async function cachedFetch(url, ttl = 60 * 60 * 1000) {
+    const cacheKey = `cache_${url}`;
+    let cached = localStorage.getItem(cacheKey);
+    try {
+      if (cached) { const data = JSON.parse(cached);
+        if (Date.now() - data.timestamp < ttl) {
+          return new Response(JSON.stringify(data.value), { status: 200 });
+        } else { clearCache(url); }
+      }
+    } catch (err) { clearCache(url); cached = null; }
+
+    try {
+      const res = await fetch(url);
+      if (res.ok) {
+        const json = await res.clone().json();
+        localStorage.setItem(cacheKey, JSON.stringify({ value: json, timestamp: Date.now() }));
+      }
+      return res;
+    } catch (err) {
+      if (cached) {
+        const data = JSON.parse(cached);
+        return new Response(JSON.stringify(data.value), { status: 200 });
+      }
+      throw err;
+    }
+  }
+
+  setInterval(() => { clearAllCache(); }, 4 * 60 * 60 * 1000); 
+
   // URL handling
   function getUrlParams() {const params = new URLSearchParams(window.location.search);
     return {
@@ -154,6 +191,17 @@ document.addEventListener('DOMContentLoaded', function () {
     container.appendChild(statsSection);
   }
 
+  function renderContributors(release) {
+    if (!release.body) return [];
+    const matches = [...release.body.matchAll(/@([a-zA-Z0-9-]+)/g)];
+    const uniqueUsernames = [...new Set(matches.map(m => m[1]))];
+    return uniqueUsernames.map(u => ({
+      login: u,
+      avatar: `https://github.com/${u}.png`,
+      html_url: `https://github.com/${u}`
+    }));
+  }
+
   function renderReleases(allReleases, tag = '') {
     let releases = allReleases.filter(r => r.assets && r.assets.length > 0);
     if (releases.length === 0) {
@@ -179,6 +227,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     releases.forEach((r) => {
       const isLatest = r.tag_name.toLowerCase() === latestRelease.tag_name.toLowerCase();
+      const contributors = renderContributors(r);
       const card = document.createElement('div');
       card.className = 'release-card';
       card.innerHTML = `
@@ -216,6 +265,20 @@ document.addEventListener('DOMContentLoaded', function () {
                 </div>
               </div>
             </div>
+            ${contributors.length > 0 ? `
+            <div class="contributors-section">
+              <div class="file-list-header">
+                <span class="files-title"><i class="fas fa-users"></i> Contributors</span>
+                <span class="contributors-count"><i class="fas fa-user-friends"></i> ${contributors.length}</span>
+              </div>
+              <div class="contributors-list">
+                ${contributors.map(c => `
+                  <a href="${c.html_url}" target="_blank" class="contrib-link">
+                    <img src="${c.avatar}" alt="${c.login}" title="${c.login}" class="contrib-avatar">
+                  </a>`).join('')}
+              </div>
+            </div>` : 
+            ''}
             <div class="file-list">
                 <div class="file-list-header">
                     <span class="files-title"><i class="fas fa-cube"></i> Assets</span>
