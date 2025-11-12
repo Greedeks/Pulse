@@ -47,7 +47,8 @@ Works seamlessly on desktop, tablet, and mobile.
 - Author avatar and author name – links to GitHub profile  
 - Tag – links to the corresponding release  
 - Label – *Release*, *Latest release* or *Pre-release*  
-- Published date, updated date, release size  
+- Published date, updated date, release size
+- Contributor avatars – links to their GitHub profiles
 
 **Assets**
 - Only releases containing assets are displayed  
