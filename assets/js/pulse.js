@@ -36,8 +36,7 @@ document.addEventListener('DOMContentLoaded', function () {
     if (!value) return;
 
     value = value.trim();
-    value = value.replace(/^(https?:\/\/)?(zh\.)?github\.com\//i, '');
-    let tag = '';
+    let username = '', repository = '', tag = '';
 
     if (clear) {
       form.username.value = '';
@@ -45,36 +44,43 @@ document.addEventListener('DOMContentLoaded', function () {
       form.releaseTag.value = '';
     }
 
-    const tagMatch = value.match(/^([\w-]+)\/([\w.-]+)\/releases\/tag\/([^/]+)/i);
-    if (tagMatch) {
-      form.username.value = tagMatch[1];
-      form.repository.value = tagMatch[2];
-      form.releaseTag.value = tagMatch[3];
-      return;
+    if (!/^https?:\/\//i.test(value) && !value.startsWith('github.com')) { value = 'https://github.com/' + value; } 
+    else if (value.startsWith('github.com')) { value = 'https://' + value; }
+
+    try {
+      const url = new URL(value);
+
+      if (!/^(?:[\w-]+\.)*github\.com$/i.test(url.hostname)) return;
+
+      const parts = url.pathname.split('/').filter(Boolean);
+      [username, repository] = parts;
+
+      const tagIndex = parts.indexOf('tag');
+      if (tagIndex > -1) { tag = parts[tagIndex + 1] || ''; }
+
+      [username, repository, tag] = [username, repository, tag].map( part => decodeURIComponent((part || '').replace(/[?#].*$/, '')));
+    } 
+    catch {
+      const match = value.match(/^([\w-]+)\/([\w.-]+)(?:@([^/]+))?/);
+      if (match) {
+        username = decodeURIComponent(match[1]);
+        repository = decodeURIComponent(match[2]);
+        tag = decodeURIComponent(match[3] || '');
+      }
     }
 
-    const shortTagMatch = value.match(/^\/?releases\/tag\/([^/]+)/i);
-    if (shortTagMatch) {
-      form.releaseTag.value = shortTagMatch[1];
-      return;
-    }
-
-    if (value.includes('@')) [value, tag] = value.split('@');
-
-    const repoMatch = value.match(/^([\w-]+)\/([\w.-]+)(?:\/.*)?$/);
-    if (repoMatch) {
-      form.username.value = repoMatch[1];
-      form.repository.value = repoMatch[2];
-      form.releaseTag.value = tag || '';
-    }
+    form.username.value = username || '';
+    form.repository.value = repository || '';
+    form.releaseTag.value = tag || '';
   }
 
   [form.username, form.repository, form.releaseTag].forEach(input => {
-    input.addEventListener('input', () => {  handleInput(input.value, false); });
-    input.addEventListener('paste', (e) => {  e.preventDefault();
-      const pasteText = (e.clipboardData || window.clipboardData).getData('text');
-      handleInput(pasteText, false);
-      if (!form.username.value && !form.repository.value && !form.releaseTag.value) { input.value = pasteText; }
+    input.addEventListener('input', () => { const val = input.value.trim();
+      if (/github\.com/i.test(val) || /^[\w-]+\/[\w.-]+(@|\/|$)/.test(val)) { handleInput(val, false); } });
+    input.addEventListener('paste', e => { e.preventDefault();
+      const pasteText = (e.clipboardData || window.clipboardData).getData('text').trim();
+      handleInput(pasteText, true);
+      if (!form.username.value && !form.repository.value && !form.releaseTag.value) { input.value = pasteText;}
     });
   });
 
